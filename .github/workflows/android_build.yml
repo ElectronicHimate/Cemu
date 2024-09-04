@@ -24,23 +24,22 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Create store file
-        env:
-          ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}
-          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        if: "${{ env.ANDROID_STORE_FILE_BASE64 != '' }}"
-        run: |
-          cd ./src/android
-          base64 --decode <<< "${ANDROID_STORE_FILE_BASE64}" > store.jks
-          ANDROID_STORE_FILE=$(pwd)/store.jks
-          echo -e "keyStorePassword=$ANDROID_KEY_STORE_PASSWORD\nkeyAlias=$ANDROID_KEY_ALIAS\nstoreFile=$ANDROID_STORE_FILE\n" > keystore.properties
-
       - name: Build Cemu for Android
-        run: |
-          cd ./src/android
+        env:	
+          ANDROID_STORE_FILE_BASE64: ${{ secrets.ANDROID_STORE_FILE_BASE64 }}	
+          ANDROID_KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}	
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}	
+        run: |	        
+          cd ./src/android	          	
           ./gradlew assembleRelease
-
+          
+      - name: build & sign
+        if: ${{ github.event.inputs.sign == 'false' }}
+        run: |
+          cd ${{ env.projectName }}${{ github.event.inputs.repo-dir }}
+          chmod +x gradlew
+          ./gradlew ${{ github.event.inputs.module }}:assembleRelease -Pandroid.injected.signing.store.file='${{ github.workspace }}/grab-keystore.jks' -Pandroid.injected.signing.store.password='grab-pwd' -Pandroid.injected.signing.key.alias='sign' -Pandroid.injected.signing.key.password='grab-pwd'
+          
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
